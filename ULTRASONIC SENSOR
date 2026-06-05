@@ -22,7 +22,7 @@ while True:
     
     # 4. If/Else Threshold Logic
     if calibrated_distance < 15.0:
-        print(f"\n⚠️ INTRUDER ALERT! Object detected at {calibrated_distance} cm!")
+        print(f"\n INTRUDER ALERT! Object detected at {calibrated_distance} cm!")
         alarm_led.on()  # Turn on the alert indicator
         sleep(0.5)      # Keep the alarm visible
     else:
