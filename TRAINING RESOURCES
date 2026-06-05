@@ -1,0 +1,39 @@
+BTHUB CODES COURSES - BUTTON PRESSED TRAFFICS
+from gpiozero import Button, TrafficLights
+from time import sleep
+
+# Define the hardware pins (Change numbers to match your actual GPIO wiring)
+button = Button(2)
+lights = TrafficLights(red=17, yellow=27, green=22)
+
+# Start with all lights off
+lights.off()
+
+print("Traffic Control System Ready! Press the button to cycle lights...")
+
+while True:
+    # 1. Wait until the student physically presses the button
+    button.wait_for_press()
+    print("Button pressed! Turning on RED.")
+    lights.red.on()
+    sleep(0.5) # Small pause so the press registers cleanly
+    
+    # 2. Wait for the next press to shift to YELLOW
+    button.wait_for_press()
+    print("Button pressed! Turning on YELLOW.")
+    lights.red.off()
+    lights.yellow.on()
+    sleep(0.5)
+    
+    # 3. Wait for the next press to shift to GREEN
+    button.wait_for_press()
+    print("Button pressed! Turning on GREEN.")
+    lights.yellow.off()
+    lights.green.on()
+    sleep(0.5)
+    
+    # 4. Final press turns everything off before resetting the loop
+    button.wait_for_press()
+    print("Button pressed! Resetting system.")
+    lights.off()
+    sleep(0.5)
