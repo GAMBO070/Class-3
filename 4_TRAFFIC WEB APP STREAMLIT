@@ -1,0 +1,35 @@
+#4 traffic leds
+import streamlit as st
+from gpiozero import LEDBoard
+
+# 1. Hardware Setup (One clean line!)
+@st.cache_resource
+def setup_hardware():
+    return LEDBoard(red=17, yellow=27, green=22, orange=10)
+
+lights = setup_hardware()
+
+# 2. Web Page Header
+st.title("Robotics Control Center")
+st.markdown("---")
+
+# 3. Simple Toggle Switches
+if st.toggle("Red Light"):
+    lights.red.on()
+else:
+    lights.red.off()
+
+if st.toggle("Yellow Light"):
+    lights.yellow.on()
+else:
+    lights.yellow.off()
+
+if st.toggle("Green Light"):
+    lights.green.on()
+else:
+    lights.green.off()
+
+if st.toggle("Orange Light"):
+    lights.orange.on()
+else:
+    lights.orange.off()
