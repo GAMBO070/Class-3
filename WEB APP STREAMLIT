@@ -1,0 +1,30 @@
+#building the web app using streamlit.
+import streamlit as st
+from gpiozero import TrafficLights
+
+# 1. Hardware Setup (One clean line!)
+@st.cache_resource
+def setup_hardware():
+    return TrafficLights(red=17, yellow=27, green=22)
+
+lights = setup_hardware()
+
+# 2. Web Page Header
+st.title(" BT-HUB Control Center")
+st.markdown("---")
+
+# 3. Simple Toggle Switches
+if st.toggle(" Red Light"):
+    lights.red.on()
+else:
+    lights.red.off()
+
+if st.toggle(" Yellow Light"):
+    lights.yellow.on()
+else:
+    lights.yellow.off()
+
+if st.toggle(" Green Light"):
+    lights.green.on()
+else:
+    lights.green.off()
