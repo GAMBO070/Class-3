@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BT-HUB Network Simulator (Concurrent Connections)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        #network-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 900px;
+            position: relative;
+            margin-bottom: 40px;
+            padding: 20px 0;
+        }
+        .node {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 220px;
+            z-index: 2;
+            border: 2px solid #e0e0e0;
+        }
+        .node h3 {
+            margin: 0 0 5px 0;
+            font-size: 1.2rem;
+            color: #2c3e50;
+        }
+        .ip-address {
+            font-family: monospace;
+            background: #eef2f5;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #555;
+            margin-bottom: 15px;
+            display: inline-block;
+        }
+        /* Buttons */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        button {
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            color: white;
+        }
+        button:hover { opacity: 0.8; }
+        button:active { transform: scale(0.95); } /* Adds a click effect */
+        .btn-red { background-color: #e74c3c; }
+        .btn-yellow { background-color: #f1c40f; color: #333; }
+        .btn-green { background-color: #2ecc71; }
+        .btn-orange { background-color: #e67e22; }
+
+        /* Router Icon */
+        .router-icon {
+            font-size: 3rem;
+            margin: 10px 0;
+        }
+
+        /* LEDs */
+        .led-container {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+            background: #333;
+            padding: 15px 10px;
+            border-radius: 8px;
+        }
+        .led {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background-color: #222;
+            box-shadow: inset 0px 2px 5px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+        }
+        .led.red.on { background-color: #ff3b30; box-shadow: 0 0 15px #ff3b30; }
+        .led.yellow.on { background-color: #ffcc00; box-shadow: 0 0 15px #ffcc00; }
+        .led.green.on { background-color: #34c759; box-shadow: 0 0 15px #34c759; }
+        .led.orange.on { background-color: #ff9500; box-shadow: 0 0 15px #ff9500; }
+
+        /* The moving packet (Dynamically Created) */
+        .packet {
+            position: absolute;
+            width: 40px;
+            height: 25px;
+            color: white;
+            font-size: 0.6rem;
+            font-weight: bold;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 12px;
+            z-index: 10;
+            transition: left 0.8s linear, top 0.8s linear;
+            pointer-events: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        /* Terminal */
+        #terminal {
+            width: 100%;
+            max-width: 900px;
+            background-color: #1e1e1e;
+            color: #4af626;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 15px;
+            border-radius: 8px;
+            height: 200px;
+            overflow-y: auto;
+            box-sizing: border-box;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .log-entry { margin-bottom: 5px; }
+        .log-time { color: #888; margin-right: 10px; }
+        .log-req { color: #e84393; margin-right: 10px; font-weight: bold; }
+        .log-client { color: #3498db; }
+        .log-server { color: #f39c12; }
+    </style>
+</head>
+<body>
+
+    <h2>Wi-Fi Remote Control Logic</h2>
+    <div class="subtitle">Multi-Threaded Client-Server Simulation</div>
+
+    <div id="network-area">
+        <div id="client" class="node">
+            <h3>Smartphone</h3>
+            <div class="ip-address">IP: 192.168.1.10</div>
+            <div class="controls">
+                <button class="btn-red" onclick="triggerSequence('red')">Toggle Red</button>
+                <button class="btn-yellow" onclick="triggerSequence('yellow')">Toggle Yellow</button>
+                <button class="btn-green" onclick="triggerSequence('green')">Toggle Green</button>
+                <button class="btn-orange" onclick="triggerSequence('orange')">Toggle Orange</button>
+            </div>
+        </div>
+
+        <div id="router" class="node" style="width: 150px; background: #e8f4f8;">
+            <h3>Wi-Fi Router</h3>
+            <div class="router-icon">📶</div>
+            <div style="font-size: 0.8rem; color: #666;">Concurrent Network</div>
+        </div>
+
+        <div id="server" class="node">
+            <h3>Raspberry Pi</h3>
+            <div class="ip-address">IP: 192.168.1.130</div>
+            <div style="font-size: 0.85rem; color: #555;">GPIO Hardware:</div>
+            <div class="led-container">
+                <div id="led-red" class="led red"></div>
+                <div id="led-yellow" class="led yellow"></div>
+                <div id="led-green" class="led green"></div>
+                <div id="led-orange" class="led orange"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="terminal"></div>
+
+    <script>
+        const terminal = document.getElementById('terminal');
+        const networkArea = document.getElementById('network-area');
+        
+        // Track LED states
+        const ledStates = { red: false, yellow: false, green: false, orange: false };
+        let requestCounter = 1;
+
+        function logToTerminal(reqId, message, type = 'system') {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit', fractionalSecondDigits: 2 });
+            
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            
+            let colorClass = '';
+            if(type === 'client') colorClass = 'log-client';
+            if(type === 'server') colorClass = 'log-server';
+
+            entry.innerHTML = `<span class="log-time">[${timeString}]</span> <span class="log-req">[Req#${reqId}]</span> <span class="${colorClass}">${message}</span>`;
+            terminal.appendChild(entry);
+            terminal.scrollTop = terminal.scrollHeight; // Auto-scroll to bottom
+        }
+
+        // Helper function to get the center coordinates of an element
+        function getCenterPoint(elementId) {
+            const el = document.getElementById(elementId);
+            const rect = el.getBoundingClientRect();
+            const areaRect = networkArea.getBoundingClientRect();
+            return {
+                x: (rect.left - areaRect.left) + (rect.width / 2),
+                y: (rect.top - areaRect.top) + (rect.height / 2)
+            };
+        }
+
+        // Async function to handle animation timing
+        const delay = ms => new Promise(res => setTimeout(res, ms));
+
+        // Spawns a brand new packet element for every movement
+        async function spawnAndMovePacket(fromId, toId, text, bgColor) {
+            const start = getCenterPoint(fromId);
+            const end = getCenterPoint(toId);
+
+            // Create packet
+            const pkt = document.createElement('div');
+            pkt.className = 'packet';
+            pkt.innerHTML = text;
+            pkt.style.backgroundColor = bgColor;
+
+            // Add a random vertical jitter so simultaneous packets don't perfectly overlap
+            const jitterY = (Math.random() - 0.5) * 40; 
+
+            // Set starting position
+            pkt.style.left = (start.x - 20) + 'px';
+            pkt.style.top = (start.y - 12 + jitterY) + 'px';
+            networkArea.appendChild(pkt);
+
+            // Force browser to register the starting position before moving
+            void pkt.offsetWidth;
+
+            // Move to destination
+            pkt.style.left = (end.x - 20) + 'px';
+            pkt.style.top = (end.y - 12 + jitterY) + 'px';
+
+            // Wait for CSS transition (0.8s) to finish, then destroy the packet
+            await delay(800);
+            pkt.remove();
+        }
+
+        async function triggerSequence(color) {
+            const currentReqId = requestCounter++;
+            const willTurnOn = !ledStates[color];
+            const actionText = willTurnOn ? 'ON' : 'OFF';
+
+            logToTerminal(currentReqId, `[Smartphone] POST /toggle/${color}`, 'client');
+
+            // 1. Client to Router
+            await spawnAndMovePacket('client', 'router', 'POST', '#3498db');
+            
+            // 2. Router to Server
+            await spawnAndMovePacket('router', 'server', 'POST', '#3498db');
+
+            // 3. Server processes request instantly upon receiving
+            logToTerminal(currentReqId, `[Raspberry Pi] Switching ${color.toUpperCase()} LED ${actionText}.`, 'server');
+            
+            // Update physical LED visual
+            ledStates[color] = willTurnOn;
+            const targetLed = document.getElementById(`led-${color}`);
+            if (willTurnOn) {
+                targetLed.classList.add('on');
+            } else {
+                targetLed.classList.remove('on');
+            }
+
+            // Small processing delay before replying
+            await delay(100); 
+
+            // 4. Server to Router
+            await spawnAndMovePacket('server', 'router', '200', '#2ecc71');
+
+            // 5. Router to Client
+            await spawnAndMovePacket('router', 'client', '200', '#2ecc71');
+
+            logToTerminal(currentReqId, `[Smartphone] Received 200 OK. UI Updated.`, 'client');
+        }
+
+        // Initial welcome message
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = `<span class="log-time">System Ready.</span> <span style="color:white;">Try clicking multiple buttons rapidly to test concurrent connections!</span>`;
+        terminal.appendChild(entry);
+    </script>
+</body>
+</html>
