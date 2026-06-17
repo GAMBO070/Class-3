@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Autonomy Simulator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e2f;
+            color: white;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-bottom: 5px; color: #4af626; }
+        .subtitle { color: #a0a0b0; margin-bottom: 20px; }
+        
+        #workspace {
+            display: flex;
+            gap: 30px;
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        /* Canvas Arena */
+        #arena-container {
+            background-color: #2a2a3f;
+            border: 3px solid #4af626;
+            border-radius: 8px;
+            position: relative;
+            cursor: crosshair;
+        }
+        canvas { display: block; border-radius: 5px; }
+        .instruction {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            pointer-events: none;
+        }
+
+        /* Real-time Flowchart */
+        #flowchart {
+            background-color: #2a2a3f;
+            padding: 20px;
+            border-radius: 8px;
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            border: 1px solid #444;
+        }
+        .flow-step {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            color: #777;
+            border: 2px solid #444;
+            transition: all 0.2s ease;
+        }
+        /* Active States */
+        .active-move { background-color: #2ecc71; color: #000; border-color: #27ae60; box-shadow: 0 0 15px #2ecc71; transform: scale(1.05); }
+        .active-check { background-color: #f1c40f; color: #000; border-color: #f39c12; box-shadow: 0 0 15px #f1c40f; transform: scale(1.05); }
+        .active-react { background-color: #e74c3c; color: #fff; border-color: #c0392b; box-shadow: 0 0 15px #e74c3c; transform: scale(1.05); }
+
+        .arrow { text-align: center; color: #777; font-size: 1.5rem; }
+
+        .controls { margin-top: 20px; display: flex; gap: 10px; }
+        button {
+            background-color: #4af626; color: #000;
+            border: none; padding: 10px 20px; font-weight: bold;
+            border-radius: 5px; cursor: pointer; transition: 0.2s;
+        }
+        button:hover { background-color: #3ade1e; }
+        button.danger { background-color: #e74c3c; color: white; }
+        button.danger:hover { background-color: #c0392b; }
+    </style>
+</head>
+<body>
+
+    <h1>Ultrasonic Autonomy Algorithm</h1>
+    <div class="subtitle">Watch the robot think in real-time. Click the arena to add obstacles.</div>
+
+    <div id="workspace">
+        
+        <div id="arena-container">
+            <div class="instruction">Click anywhere to drop a box!</div>
+            <canvas id="arena" width="600" height="400"></canvas>
+        </div>
+
+        <div id="flowchart">
+            <h3 style="margin-top: 0; text-align: center; color: #ccc;">Robot Brain Status</h3>
+            
+            <div id="step-move" class="flow-step">
+                1. Move Forward
+                <div style="font-size: 0.75rem; font-weight: normal;">Motors = ON</div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <div id="step-check" class="flow-step">
+                2. Check Sensor
+                <div id="sensor-readout" style="font-size: 0.75rem; font-weight: normal;">Distance: -- cm</div>
+            </div>
+            
+            <div class="arrow">↓</div>
+            
+            <div id="step-react" class="flow-step">
+                3. React
+                <div style="font-size: 0.75rem; font-weight: normal;">Stop & Turn Right</div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="controls">
+        <button onclick="clearObstacles()" class="danger">Clear All Obstacles</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('arena');
+        const ctx = canvas.getContext('2d');
+        
+        // Flowchart DOM Elements
+        const stepMove = document.getElementById('step-move');
+        const stepCheck = document.getElementById('step-check');
+        const stepReact = document.getElementById('step-react');
+        const sensorReadout = document.getElementById('sensor-readout');
+
+        // Robot Configuration
+        let robot = {
+            x: 100, y: 200, radius: 15,
+            angle: 0, speed: 2,
+            sensorRange: 80, // How far the ultrasonic sees
+            state: 'MOVING', // 'MOVING' or 'TURNING'
+            targetAngle: 0
+        };
+
+        // Obstacles Array
+        let obstacles = [];
+
+        // Add obstacle on click
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            // Add a 40x40 box centered on the mouse click
+            obstacles.push({
+                x: mouseX - 20,
+                y: mouseY - 20,
+                w: 40, h: 40
+            });
+        });
+
+        function clearObstacles() {
+            obstacles = [];
+        }
+
+        // --- Core Logic & Math ---
+
+        // Draw everything
+        function draw() {
+            // Clear background
+            ctx.fillStyle = '#2a2a3f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Obstacles
+            ctx.fillStyle = '#8e44ad';
+            obstacles.forEach(obs => {
+                ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                ctx.strokeStyle = '#9b59b6';
+                ctx.strokeRect(obs.x, obs.y, obs.w, obs.h);
+            });
+
+            // Calculate Sensor Tip (The point the sensor is checking)
+            let sensorTipX = robot.x + Math.cos(robot.angle) * robot.sensorRange;
+            let sensorTipY = robot.y + Math.sin(robot.angle) * robot.sensorRange;
+
+            // Check if sensor tip hits a wall
+            let isObstacleDetected = false;
+            if (sensorTipX < 0 || sensorTipX > canvas.width || sensorTipY < 0 || sensorTipY > canvas.height) {
+                isObstacleDetected = true;
+            }
+
+            // Check if sensor tip hits any drawn boxes
+            obstacles.forEach(obs => {
+                if (sensorTipX > obs.x && sensorTipX < obs.x + obs.w && 
+                    sensorTipY > obs.y && sensorTipY < obs.y + obs.h) {
+                    isObstacleDetected = true;
+                }
+            });
+
+            // Draw Sensor Beam
+            ctx.beginPath();
+            ctx.moveTo(robot.x, robot.y);
+            ctx.lineTo(sensorTipX, sensorTipY);
+            ctx.strokeStyle = isObstacleDetected ? '#ff3b30' : '#4af626'; // Red if hit, Green if clear
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]); // Dashed line for ultrasonic waves
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset
+
+            // Draw Sensor Hit Marker
+            ctx.beginPath();
+            ctx.arc(sensorTipX, sensorTipY, 4, 0, Math.PI * 2);
+            ctx.fillStyle = isObstacleDetected ? '#ff3b30' : '#4af626';
+            ctx.fill();
+
+            // Draw Robot Body
+            ctx.beginPath();
+            ctx.arc(robot.x, robot.y, robot.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#f1c40f';
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw Robot Direction Indicator (Eyes)
+            ctx.beginPath();
+            ctx.moveTo(robot.x, robot.y);
+            ctx.lineTo(robot.x + Math.cos(robot.angle) * robot.radius, robot.y + Math.sin(robot.angle) * robot.radius);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            return isObstacleDetected;
+        }
+
+        function updateUI(state, hit) {
+            // Reset all active classes
+            stepMove.className = 'flow-step';
+            stepCheck.className = 'flow-step';
+            stepReact.className = 'flow-step';
+
+            if (state === 'TURNING') {
+                stepReact.classList.add('active-react');
+                sensorReadout.innerText = "DANGER! Obstacle < 10cm";
+            } else if (hit) {
+                stepCheck.classList.add('active-check');
+            } else {
+                stepMove.classList.add('active-move');
+                sensorReadout.innerText = "Path Clear";
+            }
+        }
+
+        // Main Simulation Loop
+        function loop() {
+            let hit = draw();
+
+            // Robot State Machine (The actual algorithm)
+            if (robot.state === 'MOVING') {
+                if (hit) {
+                    // Object detected! Switch to reaction state.
+                    robot.state = 'TURNING';
+                    // Set target angle to 90 degrees (1.57 radians) clockwise
+                    robot.targetAngle = robot.angle + (Math.PI / 2);
+                } else {
+                    // Move forward
+                    robot.x += Math.cos(robot.angle) * robot.speed;
+                    robot.y += Math.sin(robot.angle) * robot.speed;
+                }
+            } 
+            else if (robot.state === 'TURNING') {
+                // Smoothly rotate the robot
+                robot.angle += 0.05; 
+                
+                // If we finished the 90 degree turn
+                if (robot.angle >= robot.targetAngle) {
+                    robot.angle = robot.targetAngle; // Lock it to exactly 90 deg
+                    robot.state = 'MOVING'; // Go back to moving forward
+                }
+            }
+
+            // Sync visual flowchart
+            updateUI(robot.state, hit);
+
+            // Repeat forever
+            requestAnimationFrame(loop);
+        }
+
+        // Start the engine!
+        loop();
+
+    </script>
+</body>
+</html>
