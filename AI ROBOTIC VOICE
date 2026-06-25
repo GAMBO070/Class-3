@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BT-HUB Robot Data Flow</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e2e;
+            color: #cdd6f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        h1 { margin-bottom: 10px; color: #a6e3a1; }
+        p { margin-bottom: 40px; color: #bac2de; }
+
+        .system-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 900px;
+            position: relative;
+        }
+
+        /* The Nodes */
+        .node {
+            background-color: #313244;
+            border: 3px solid #45475a;
+            border-radius: 12px;
+            width: 140px;
+            height: 140px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            z-index: 2;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .node h3 { margin: 0 0 10px 0; font-size: 16px; color: #89b4fa; }
+        .node .emoji { font-size: 40px; margin-bottom: 5px; }
+        .node .status { font-size: 12px; color: #a6adc8; font-weight: bold; min-height: 15px;}
+
+        /* The Wires */
+        .wire {
+            position: absolute;
+            height: 4px;
+            background-color: #45475a;
+            z-index: 1;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        /* Connecting the wires specifically */
+        #wire1 { left: 140px; width: 50px; }
+        #wire2 { left: 330px; width: 50px; }
+        #wire3 { left: 520px; width: 50px; }
+        #wire4 { left: 710px; width: 50px; }
+
+        /* The moving Data Packet */
+        .packet {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: #f9e2af;
+            border-radius: 50%;
+            top: 50%;
+            transform: translateY(-50%);
+            left: 60px;
+            z-index: 3;
+            opacity: 0;
+            box-shadow: 0 0 15px #f9e2af;
+            transition: left 1s ease-in-out, opacity 0.2s;
+        }
+
+        /* Button styling */
+        button {
+            margin-top: 50px;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: #89b4fa;
+            color: #11111b;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover { background-color: #74c7ec; }
+        button:disabled { background-color: #585b70; cursor: not-allowed; }
+
+        /* Active highlight class triggered by JS */
+        .active {
+            border-color: #a6e3a1;
+            box-shadow: 0 0 20px rgba(166, 227, 161, 0.5);
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>BT-HUB Voice Robotic AI</h1>
+    <p>Watch how your voice travels through the hardware and into the cloud!</p>
+
+    <div class="system-container">
+        <div class="packet" id="dataPacket"></div>
+
+        <div class="node" id="node-user">
+            <div class="emoji">🗣️</div>
+            <h3>Student</h3>
+            <div class="status" id="status-user">Waiting...</div>
+        </div>
+        <div class="wire" id="wire1"></div>
+
+        <div class="node" id="node-mic">
+            <div class="emoji">🎙️</div>
+            <h3>Microphone</h3>
+            <div class="status" id="status-mic">Ready</div>
+        </div>
+        <div class="wire" id="wire2"></div>
+
+        <div class="node" id="node-pi">
+            <div class="emoji">🍓</div>
+            <h3>Raspberry Pi</h3>
+            <div class="status" id="status-pi">Idle</div>
+        </div>
+        <div class="wire" id="wire3"></div>
+
+        <div class="node" id="node-api">
+            <div class="emoji">☁️</div>
+            <h3>Groq API</h3>
+            <div class="status" id="status-api">Sleeping</div>
+        </div>
+        <div class="wire" id="wire4"></div>
+
+        <div class="node" id="node-speaker">
+            <div class="emoji">🔊</div>
+            <h3>Speaker</h3>
+            <div class="status" id="status-speaker">Quiet</div>
+        </div>
+    </div>
+
+    <button id="startBtn" onclick="runSimulation()">Ask a Question</button>
+
+    <script>
+        // Grab the elements from the HTML
+        const packet = document.getElementById('dataPacket');
+        const btn = document.getElementById('startBtn');
+
+        // Helper function to update text and highlight a box
+        function setNode(id, text, isActive) {
+            const node = document.getElementById('node-' + id);
+            const status = document.getElementById('status-' + id);
+            status.innerText = text;
+            
+            if (isActive) {
+                node.classList.add('active');
+            } else {
+                node.classList.remove('active');
+            }
+        }
+
+        // The main sequence
+        function runSimulation() {
+            btn.disabled = true; // Lock button during animation
+            packet.style.opacity = 1; // Make packet visible
+            packet.style.backgroundColor = "#f9e2af"; // Set color to yellow (Audio)
+
+            // Step 1: User Speaks
+            packet.style.left = '60px';
+            setNode('user', 'Speaking...', true);
+            setNode('mic', 'Ready', false);
+            setNode('pi', 'Idle', false);
+            setNode('api', 'Sleeping', false);
+            setNode('speaker', 'Quiet', false);
+
+            // Step 2: Mic Captures Audio
+            setTimeout(() => {
+                packet.style.left = '250px';
+                setNode('user', 'Waiting...', false);
+                setNode('mic', 'Recording Audio', true);
+            }, 1000);
+
+            // Step 3: Pi Processes Audio
+            setTimeout(() => {
+                packet.style.left = '440px';
+                setNode('mic', 'Ready', false);
+                setNode('pi', 'Routing Data', true);
+            }, 2000);
+
+            // Step 4: Groq API Thinks
+            setTimeout(() => {
+                packet.style.left = '630px';
+                packet.style.backgroundColor = "#cba6f7"; // Change color to purple (AI Data)
+                setNode('pi', 'Waiting for AI', false);
+                setNode('api', 'Generating Answer', true);
+            }, 3000);
+
+            // Step 5: Back to Pi for Text-to-Speech
+            setTimeout(() => {
+                packet.style.left = '440px';
+                setNode('api', 'Sleeping', false);
+                setNode('pi', 'Text to Audio', true);
+            }, 4500);
+
+            // Step 6: Speaker Plays Audio
+            setTimeout(() => {
+                packet.style.left = '820px';
+                packet.style.backgroundColor = "#f9e2af"; // Change color back to Audio
+                setNode('pi', 'Idle', false);
+                setNode('speaker', 'Playing Sound!', true);
+            }, 5500);
+
+            // Step 7: Reset
+            setTimeout(() => {
+                packet.style.opacity = 0; // Hide packet
+                packet.style.left = '60px'; // Reset position
+                setNode('speaker', 'Quiet', false);
+                btn.disabled = false; // Unlock button
+            }, 7500);
+        }
+    </script>
+</body>
+</html>
