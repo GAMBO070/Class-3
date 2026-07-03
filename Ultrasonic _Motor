@@ -1,0 +1,35 @@
+from gpiozero import Robot, DistanceSensor
+from time import sleep
+
+# --- 1. SETUP ---
+bthub_bot = Robot(left=(17, 27), right=(22, 23))
+eyes = DistanceSensor(echo=18, trigger=4)
+
+# Start by going forward
+direction = "forward"
+bthub_bot.forward()
+
+# --- 2. THE INFINITE LOOP ---
+while True:
+    # If an object is closer than 20cm (0.2 meters)
+    if eyes.distance < 0.2:
+        print("Object detected! Stopping...")
+        bthub_bot.stop()
+        sleep(1) # Pause for the motors to physically stop
+        
+        # Change the direction
+        if direction == "forward":
+            direction = "backward"
+            print("Going backward")
+            bthub_bot.backward()
+        else:
+            direction = "forward"
+            print("Going forward")
+            bthub_bot.forward()
+            
+        # Wait 1 second before looking for objects again
+        # This gives the robot time to drive away from the object
+        sleep(1) 
+
+    # A tiny pause to keep the Raspberry Pi from overheating
+    sleep(0.05)
