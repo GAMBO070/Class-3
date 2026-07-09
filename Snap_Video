@@ -1,0 +1,23 @@
+#BTHUB VIDEO STREAMING. 
+import subprocess
+
+#1. SETTINGS
+file_path = '/home/bthub/Desktop/Save_video.mp4'
+record_time = 10 
+
+print(f"Recording {record_time} seconds of 480p SD video...")
+
+#2. COMMAND
+command = [
+    'rpicam-vid', 
+    '-t', str(record_time * 1000), 
+    '--codec', 'libav', 
+    '--width', '640', 
+    '--height', '480', 
+    '--framerate', '30', 
+    '-o', file_path
+]
+
+#3. RUN
+subprocess.run(command)
+print(f"Saved to: {file_path}")
