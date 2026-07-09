@@ -1,0 +1,35 @@
+#BTHUB WEB STREAMING PI RIBBON CAMERA
+import cv2
+from flask import Flask, Response
+from picamera2 import Picamera2
+
+app = Flask(__name__)
+
+# --- 1. TURN ON CAMERA (HD Resolution)
+picam2 = Picamera2()
+picam2.configure(picam2.create_video_configuration(main={"size": (1280, 720)}))
+picam2.start()
+
+# 2. TAKE PICTURES 
+def get_pictures():
+    while True:
+        frame = picam2.capture_array()                  # Snap photo
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # Fix colors for OpenCV
+        _, buffer = cv2.imencode('.jpg', frame)         # Compress to JPG
+        
+        # Send to website
+        yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+
+# --- 3. THE WEBSITE ---
+@app.route('/')
+def home():
+    #Streaming the video
+    return '<img src="/stream" style="max-width: 100%;">' 
+
+@app.route('/stream')
+def stream():
+    return Response(get_pictures(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+#4. START SERVER
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=5000)
