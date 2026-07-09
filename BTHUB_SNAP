@@ -1,0 +1,37 @@
+import cv2
+from picamera2 import Picamera2
+
+# 1. SETUP CAMERA
+picam2 = Picamera2()
+picam2.preview_configuration.main.size = (640, 480)
+picam2.configure("preview")
+picam2.start()
+
+print("Press 's' to snap a photo, or 'q' to quit.")
+count = 1
+
+# 2. MAIN LOOP
+while True:
+    # Grab the raw picture
+    frame = picam2.capture_array()
+    
+    #Settings the Green Red and Blue colors
+    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+    
+    # Show the video window
+    cv2.imshow('BT-HUB Camera', frame)
+    
+    # Check for keys
+    key = cv2.waitKey(1)
+    
+    if key == ord('s'):
+        cv2.imwrite(f'/home/bthub/Desktop/photo{count}.jpg', frame)
+        print("Photo Saved!")
+        count += 1
+        
+    elif key == ord('q'):
+        break
+
+# Safely close
+picam2.stop()
+cv2.destroyAllWindows()
