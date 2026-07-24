@@ -1,0 +1,56 @@
+import json, time, wave, pyaudio, audioop
+from vosk import Model, KaldiRecognizer
+
+# 1. SETUP
+model = Model("model")
+mic = pyaudio.PyAudio()
+rate = int(mic.get_default_input_device_info()['defaultSampleRate'])
+recognizer = KaldiRecognizer(model, rate)
+
+# --- SENSITIVITY FIX ---
+# Tell Vosk to accept lower-volume words instead of ignoring quiet speech
+recognizer.SetWords(True)
+
+stream = mic.open(format=pyaudio.paInt16, channels=1, rate=rate, input=True, frames_per_buffer=4096)
+stream.start_stream()
+print("Nova is listening with HIGH sensitivity...")
+
+# 2. MAIN LOOP
+while True:
+    raw_data = stream.read(4096, exception_on_overflow=False)
+    
+    # DIGITAL BOOST: Multiply the raw microphone volume by 3x so Nova hears from far away
+    boosted_data = audioop.mul(raw_data, 2, 3.0)
+    
+    if recognizer.AcceptWaveform(boosted_data):
+        text = json.loads(recognizer.Result()).get("text", "")
+        
+        if "nova" in text:
+            print("\n Nova heard you! Recording question for 20 seconds...")
+            frames = []
+            start = time.time()
+            
+            # Record for 20 seconds with the boosted volume
+            while time.time() - start < 20:
+                audio_chunk = stream.read(4096, exception_on_overflow=False)
+                # Boost the recorded audio too so the AI can hear it clearly
+                boosted_chunk = audioop.mul(audio_chunk, 2, 2.0)
+                frames.append(boosted_chunk)
+                print(".", end="", flush=True)
+                
+            # Save the file
+            with wave.open("student_question.wav", 'wb') as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(mic.get_sample_size(pyaudio.paInt16))
+                wf.setframerate(rate)
+                wf.writeframes(b''.join(frames))
+                
+            print("\nSaved boosted audio! Listening again...")
+
+        elif "goodbye" in text:
+            print("Shutting down.")
+            break
+
+# 3. CLEANUP
+stream.close()
+mic.terminate()
