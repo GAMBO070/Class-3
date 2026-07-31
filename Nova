@@ -1,0 +1,117 @@
+import ollama
+import streamlit as st
+from gpiozero import Motor
+
+# --- 1. INITIALIZE MOTORS ONCE IN SESSION STATE ---
+if "motor_left" not in st.session_state:
+    st.session_state.motor_left = Motor(forward=17, backward=18)
+    st.session_state.motor_right = Motor(forward=22, backward=23)
+
+motor_left = st.session_state.motor_left
+motor_right = st.session_state.motor_right
+
+def move_motors(direction):
+    """Executes motor movements directly."""
+    if direction == "forward":
+        motor_left.forward()
+        motor_right.forward()
+    elif direction == "backward":
+        motor_left.backward()
+        motor_right.backward()
+    elif direction == "left":
+        motor_left.backward()
+        motor_right.forward()
+    elif direction == "right":
+        motor_left.forward()
+        motor_right.backward()
+    elif direction == "stop":
+        motor_left.stop()
+        motor_right.stop()
+
+# --- 2. SYSTEM PROMPT ---
+SYSTEM_PROMPT = {
+    "role": "system",
+    "content": (
+        "You are Nova, an intelligent humanoid STEM robot for kids. "
+        "STRICT RULE: Only answer educational, scientific, coding, math, and school questions. "
+        "If a question is NOT about learning or school subjects, politely refuse. "
+        "Keep allowed answers clear, direct, engaging, and concise."
+    )
+}
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# --- 3. STREAMLIT PAGE CONFIG ---
+st.set_page_config(page_title="Nova Robot Interface", layout="centered")
+
+# --- 4. LEFT SIDEBAR: MOTOR CONTROLS ---
+with st.sidebar:
+    st.title("Motor Controls")
+    st.write("Use the controls below to steer Nova.")
+
+    # Row 1: Forward
+    c1, c2, c3 = st.columns(3)
+    with c2:
+        if st.button("⬆️ Forward"):
+            move_motors("forward")
+
+    # Row 2: Left - Stop - Right
+    c4, c5, c6 = st.columns(3)
+    with c4:
+        if st.button("⬅️ Left"):
+            move_motors("left")
+    with c5:
+        if st.button("⏹️ Stop"):
+            move_motors("stop")
+    with c6:
+        if st.button("➡️ Right"):
+            move_motors("right")
+
+    # Row 3: Backward
+    c7, c8, c9 = st.columns(3)
+    with c8:
+        if st.button("⬇️ Backward"):
+            move_motors("backward")
+
+# --- 5. MAIN CHAT INTERFACE ---
+st.title("NOVA ASSISTANT")
+st.caption("Offline Educational Humanoid Interface")
+
+# Display conversation history
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
+
+# Text Input
+if user_query := st.chat_input("Ask Nova an educational question..."):
+    st.session_state.messages.append({"role": "user", "content": user_query})
+    with st.chat_message("user"):
+        st.write(user_query)
+
+    payload = [SYSTEM_PROMPT, st.session_state.messages[-1]]
+
+    with st.chat_message("assistant"):
+        response_placeholder = st.empty()
+        full_response = ""
+
+        stream = ollama.chat(
+            model='qwen2.5:0.5b',  # Lightest, fastest model for Raspberry Pi 4
+            messages=payload,
+            stream=True,
+            options={
+                "num_thread": 4,      # Uses all 4 CPU cores
+                "num_ctx": 256,       # Low memory overhead = instant speed
+                "num_predict": 250,   # High limit so answers complete naturally
+                "temperature": 0.3
+            }
+        )
+
+        for chunk in stream:
+            token = chunk['message']['content']
+            full_response += token
+            response_placeholder.write(full_response + "▌")
+
+        response_placeholder.write(full_response)
+
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
