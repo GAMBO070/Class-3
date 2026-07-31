@@ -53,25 +53,25 @@ with st.sidebar:
     # Row 1: Forward
     c1, c2, c3 = st.columns(3)
     with c2:
-        if st.button("⬆️ Forward"):
+        if st.button("Forward"):
             move_motors("forward")
 
     # Row 2: Left - Stop - Right
     c4, c5, c6 = st.columns(3)
     with c4:
-        if st.button("⬅️ Left"):
+        if st.button("Left"):
             move_motors("left")
     with c5:
-        if st.button("⏹️ Stop"):
+        if st.button("Stop"):
             move_motors("stop")
     with c6:
-        if st.button("➡️ Right"):
+        if st.button("Right"):
             move_motors("right")
 
     # Row 3: Backward
     c7, c8, c9 = st.columns(3)
     with c8:
-        if st.button("⬇️ Backward"):
+        if st.button("Backward"):
             move_motors("backward")
 
 # --- 5. MAIN CHAT INTERFACE ---
@@ -110,7 +110,7 @@ if user_query := st.chat_input("Ask Nova an educational question..."):
         for chunk in stream:
             token = chunk['message']['content']
             full_response += token
-            response_placeholder.write(full_response + "▌")
+            response_placeholder.write(full_response + "")
 
         response_placeholder.write(full_response)
 
