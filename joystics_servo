@@ -1,0 +1,92 @@
+// Include the ESP32 Servo library to handle PWM signals using ESP32 hardware timers
+#include <ESP32Servo.h>
+
+// --- PIN DEFINITIONS ---
+// Analog input pins for reading joystick potentiometer voltages (connected to ADC1)
+const int X_PIN  = 34; // Joystick horizontal axis (VRx)
+const int Y_PIN  = 35; // Joystick vertical axis (VRy)
+// Digital pin for the integrated push button switch
+const int SW_PIN = 32; // Joystick button (SW)
+
+// Digital output pins used to send PWM signals to the servo motors
+const int SERVO_X_PIN = 18; // Pan servo (tracks X-axis)
+const int SERVO_Y_PIN = 19; // Tilt servo (tracks Y-axis)
+
+// --- OBJECT DECLARATIONS ---
+// Create Servo instances to interface with each motor
+Servo servoX;
+Servo servoY;
+
+void setup() {
+  // Start hardware serial communication at 115200 baud for debugging output
+  Serial.begin(115200);
+
+  // Enable internal pull-up resistor: keeps pin HIGH when idle, pulls LOW when pressed
+  pinMode(SW_PIN, INPUT_PULLUP);
+
+  // Configure ADC attenuation to 11dB to measure the full 0 to ~3.3V range (0-4095)
+  analogSetAttenuation(ADC_11db);
+
+  // Allocate hardware timers 0 and 1 on the ESP32 for generating servo PWM signals
+  ESP32PWM::allocateTimer(0);
+  ESP32PWM::allocateTimer(1);
+
+  // Set the standard servo PWM frequency to 50 Hz (20ms period)
+  servoX.setPeriodHertz(50);
+  servoY.setPeriodHertz(50);
+
+  // Attach servos to their respective GPIO pins with standard pulse widths (500us to 2400us)
+  servoX.attach(SERVO_X_PIN, 500, 2400);
+  servoY.attach(SERVO_Y_PIN, 500, 2400);
+
+  // Center both servos to 90 degrees at startup (home position)
+  servoX.write(90);
+  servoY.write(90);
+}
+
+void loop() {
+  // --- 1. SENSOR ACQUISITION ---
+  // Read raw 12-bit ADC value from X-axis potentiometer (yields 0 to 4095)
+  int rawX = analogRead(X_PIN);
+  
+  // Brief delay to allow the internal ADC sampling capacitor to discharge between channels
+  delay(5);
+  
+  // Read raw 12-bit ADC value from Y-axis potentiometer (yields 0 to 4095)
+  int rawY = analogRead(Y_PIN);
+  
+  // Read digital state of the switch (LOW = 0 when pressed, HIGH = 1 when idle)
+  int swState = digitalRead(SW_PIN);
+
+  // --- 2. VALUE MAPPING ---
+  // Convert the 12-bit ADC range (0 to 4095) to standard servo angles (0 to 180 degrees)
+  int angleX = map(rawX, 0, 4095, 0, 180);
+  int angleY = map(rawY, 0, 4095, 0, 180);
+
+  // Restrict angles strictly within the 0 to 180 boundary to prevent overdriving the gearbox
+  angleX = constrain(angleX, 0, 180);
+  angleY = constrain(angleY, 0, 180);
+
+  // --- 3. DEADZONE FILTERING ---
+  // Joystick springs center around ~1870 with minor electrical noise;
+  // force output to neutral 90 degrees if the stick is resting in the center zone
+  if (rawX > 1750 && rawX < 1950) angleX = 90;
+  if (rawY > 1750 && rawY < 1950) angleY = 90;
+
+  // --- 4. ACTUATOR COMMANDS ---
+  // Transmit targeted angular positions to the servos
+  servoX.write(angleX);
+  servoY.write(angleY);
+
+  // --- 5. TELEMETRY & DEBUGGING ---
+  // Print current angles and push button state to the Serial Monitor
+  Serial.print("Angle X: ");
+  Serial.print(angleX);
+  Serial.print("°\tAngle Y: ");
+  Serial.print(angleY);
+  Serial.print("°\tSwitch: ");
+  Serial.println(swState == LOW ? "CLICKED" : "IDLE");
+
+  // 20ms pause matches the 50Hz servo refresh cycle to avoid bus congestion
+  delay(20);
+}
